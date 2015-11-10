@@ -59,7 +59,7 @@ Module.prototype.require = function(name, key, options) {
     var nameToLoad;
     var result;
 
-    if (name in transforms[active]) {
+    if (transforms[active] && name in transforms[active]) {
         nameToLoad = Module._resolveFilename(transforms[active][name], this);
         if (nameToLoad in metacache[active]) {
             result = metacache[active][nameToLoad];
@@ -113,14 +113,14 @@ dynamicRequire.cache = require.cache;
 
 module.exports = {
     require:dynamicRequire,
-    register:function(key, transforms) {
+    register:function(key, map) {
         metacache[key] = {};
-        transforms[key] = transforms;
+        transforms[key] = map;
     },
-    activate:function(key, transforms) {
+    activate:function(key, map) {
         active = key;
-        if (transforms) {
-            module.exports.register(key, transforms);
+        if (map) {
+            module.exports.register(key, map);
         }
     }
 }
