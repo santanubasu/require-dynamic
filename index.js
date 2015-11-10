@@ -2,9 +2,9 @@ var check = require("check-more-types");
 var Module = require("module");
 var _ = require("underscore");
 
-var metacache = {};
+var tenantCache = {};
 var transforms = {};
-var active = "";
+var activeTenant = "";
 
 // Require hijacking is based on https://github.com/bahmutov/really-need
 
@@ -45,49 +45,53 @@ function load(transform, module, filename) {
     }
 }
 
-Module.prototype.require = function(name, key, options) {
+Module.prototype.require = function(name, tenantArg, options) {
 
     options = options||{};
 
-    if (key) {
-        active = key;
-        if (options.transforms) {
-            transforms[key] = options.transforms;
-        }
+    var tenantLocal = false;
+
+    if (_.isString(tenantArg)) {
+        tenantLocal = true;
+        activeTenant = tenantArg;
+    }
+    else if (tenantArg===true) {
+        tenantLocal = true;
     }
 
     var nameToLoad;
     var result;
 
-    if (transforms[active] && name in transforms[active]) {
-        nameToLoad = Module._resolveFilename(transforms[active][name], this);
-        if (nameToLoad in metacache[active]) {
-            result = metacache[active][nameToLoad];
+    try {
+        if (transforms[activeTenant] && name in transforms[activeTenant]) {
+            nameToLoad = Module._resolveFilename(transforms[activeTenant][name], this);
         }
         else {
-            delete require.cache[nameToLoad];
-            result = Module._load(nameToLoad, this);
-            metacache[active][nameToLoad] = result;
+            nameToLoad = Module._resolveFilename(name, this);
         }
     }
-    else {
-        try {
-            nameToLoad = Module._resolveFilename(name, this);
+    catch (e) {
+        throw "Unable to resolve dependency "+name+" in dynamic require.";
+    }
+
+    try {
+        if (tenantLocal) {
+            if (nameToLoad in tenantCache[activeTenant]) {
+                result = tenantCache[activeTenant][nameToLoad];
+            }
+            else {
+                result = Module._load(nameToLoad, this);
+                tenantCache[activeTenant][nameToLoad] = result;
+                delete require.cache[nameToLoad];
+            }
+        }
+        else {
             result = _require.call(this, nameToLoad);
         }
-        catch (e) {
-            console.log("Unable to dynamically require "+name);
-        }
-
     }
-
-    if (!result) {
-        if (options.default) {
-            result = options.default
-        }
-        else {
-            throw "Dependency "+name+" could not be dynamically required.";
-        }
+    catch (e) {
+        console.log("Unable to load dependency "+name+" in dynamic require, resolved name was "+nameToLoad);
+        throw e;
     }
 
     return result;
@@ -113,14 +117,11 @@ dynamicRequire.cache = require.cache;
 
 module.exports = {
     require:dynamicRequire,
-    register:function(key, map) {
-        metacache[key] = {};
-        transforms[key] = map;
+    register:function(key, transform) {
+        tenantCache[key] = {};
+        transforms[key] = transform;
     },
-    activate:function(key, map) {
-        active = key;
-        if (map) {
-            module.exports.register(key, map);
-        }
+    activate:function(key) {
+        activeTenant = key;
     }
 }
