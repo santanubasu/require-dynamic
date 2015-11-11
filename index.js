@@ -5,14 +5,13 @@ var _ = require("underscore");
 var tenantCache = {};
 var transforms = {};
 var activeTenant = "";
-var tenantLocalFlag = "_tenantLocal";
+tenantCache[activeTenant] = {};
 
 module.exports = {
-    tenantLocalFlag:tenantLocalFlag,
     replaceRequire: _.once(function() {
-// Require hijacking is based on https://github.com/bahmutov/really-need
+        // Require hijacking is based on https://github.com/bahmutov/really-need
 
-// these variables are needed inside eval _compile
+        // these variables are needed inside eval _compile
         /* jshint -W098 */
         var runInNewContext = require('vm').runInNewContext;
         var runInThisContext = require('vm').runInThisContext;
@@ -53,14 +52,8 @@ module.exports = {
 
             options = options||{};
 
-            var tenantLocal = false;
-
             if (_.isString(tenantArg)) {
-                tenantLocal = true;
                 activeTenant = tenantArg;
-            }
-            else if (tenantArg===true) {
-                tenantLocal = true;
             }
 
             var nameToLoad;
@@ -84,10 +77,8 @@ module.exports = {
                 }
                 else {
                     result = Module._load(nameToLoad, this);
-                    if (tenantLocal||result[tenantLocalFlag]) {
-                        tenantCache[activeTenant][nameToLoad] = result;
-                        delete require.cache[nameToLoad];
-                    }
+                    tenantCache[activeTenant][nameToLoad] = result;
+                    delete require.cache[nameToLoad];
                 }
             }
             catch (e) {
@@ -100,8 +91,8 @@ module.exports = {
 
         var resolvedArgv;
 
-// see Module.prototype._compile in
-// https://github.com/joyent/node/blob/master/lib/module.js
+        // see Module.prototype._compile in
+        // https://github.com/joyent/node/blob/master/lib/module.js
         var _compileStr = _compile.toString();
         _compileStr = _compileStr.replace('self.require(path);', 'self.require.apply(self, arguments);');
 
