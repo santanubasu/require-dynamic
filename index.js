@@ -16,6 +16,7 @@ module.exports = {
         var runInNewContext = require('vm').runInNewContext;
         var runInThisContext = require('vm').runInThisContext;
         var path = require('path');
+        var shebangRe = /^\#\!.*/;
 
         var _require = Module.prototype.require;
         var _compile = Module.prototype._compile;
